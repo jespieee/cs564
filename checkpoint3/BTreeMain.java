@@ -29,7 +29,7 @@ public class BTreeMain {
         List<Student> studentsDB = getStudents();
 
         for (Student s : studentsDB) {
-            bTree.insert(s);
+            bTree.insert(s, false);
         }
 
         /** Start reading the operations now from input file */
@@ -56,7 +56,7 @@ public class BTreeMain {
                             long recordID = 41644; // TODO someone implement this logic
 
                             Student s = new Student(studentId, age, studentName, major, level, recordID);
-                            bTree.insert(s);
+                            bTree.insert(s, true);
                             System.out.println(bTree.print());
                             break;
                         }

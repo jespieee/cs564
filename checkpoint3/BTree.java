@@ -34,7 +34,7 @@ class BTree {
         return -1;
     }
 
-    BTree insert(Student student) {
+    BTree insert(Student student, boolean writeToFile) {
 
         // ideally, we should check if the student already exists
         // but for now, we'll just insert it and add it to the csv
@@ -144,13 +144,16 @@ class BTree {
         currentNode.n++;
 
         // don't forget to add to the table :,)
-        try (FileWriter fw = new FileWriter("./Student.csv", true)) {
-            fw.write(student.studentId + "," + student.studentName + "," +
-                    student.major + "," + student.level + "," +
-                    student.age + "," + student.recordId + "\n");
-        } catch (Exception e) {
-            System.err.println("Error writing to Student.csv: " + e.getMessage());
+        if (writeToFile) {
+            try (FileWriter fw = new FileWriter("./Student.csv", true)) {
+                fw.write(student.studentId + "," + student.studentName + "," +
+                        student.major + "," + student.level + "," +
+                        student.age + "," + student.recordId + "\n");
+            } catch (Exception e) {
+                System.err.println("Error writing to Student.csv: " + e.getMessage());
+            }
         }
+
         return this;
     }
 
