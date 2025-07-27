@@ -1,3 +1,6 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.FileWriter;
@@ -23,14 +26,60 @@ class BTree {
         this.t = t;
     }
 
+    // Karlson, feel free to check/change this as needed.
+    // I implemented it for testing delete, not sure if it handles all scenarios.
     long search(long studentId) {
-        /**
-         * TODO:
-         * Implement this function to search in the B+Tree.
-         * Return recordID for the given StudentID.
-         * Otherwise, print out a message that the given studentId has not been found in
-         * the table and return -1.
-         */
+        if (root == null) {
+            System.out.println("The given studentId " + studentId + " has not been found in the table");
+            return -1;
+        }
+
+        BTreeNode current = root;
+
+        // Navigate to leaf node
+        while (!current.leaf) {
+            int i = 0;
+            while (i < current.n && studentId > current.keys[i]) {
+                i++;
+            }
+            current = current.children[i];
+        }
+
+        // Search in leaf node
+        for (int i = 0; i < current.n; i++) {
+            if (current.keys[i] == studentId) {
+                return current.values[i];
+            }
+        }
+
+        System.out.println("The given studentId " + studentId + " has not been found in the table");
+        return -1;
+    }
+
+    // Helper method for searching with no output
+    private long searchQuiet(long studentId) {
+        if (root == null) {
+            return -1;
+        }
+
+        BTreeNode current = root;
+
+        // Navigate to leaf node
+        while (!current.leaf) {
+            int i = 0;
+            while (i < current.n && studentId > current.keys[i]) {
+                i++;
+            }
+            current = current.children[i];
+        }
+
+        // Search in leaf node
+        for (int i = 0; i < current.n; i++) {
+            if (current.keys[i] == studentId) {
+                return current.values[i];
+            }
+        }
+
         return -1;
     }
 
@@ -158,13 +207,256 @@ class BTree {
     }
 
     boolean delete(long studentId) {
-        /**
-         * TODO:
-         * Implement this function to delete in the B+Tree.
-         * Also, delete in student.csv after deleting in B+Tree, if it exists.
-         * Return true if the student is deleted successfully otherwise, return false.
-         */
+        if (root == null) {
+            return false;
+        }
+
+        // Check if key exists without printing message
+        long recordId = searchQuiet(studentId);
+        if (recordId == -1) {
+            return false;
+        }
+
+        delete(root, studentId);
+
+        // If root becomes empty, make its first child as new root
+        if (root.n == 0) {
+            if (!root.leaf) {
+                root = root.children[0];
+            } else {
+                root = null;
+            }
+        }
+
+        // Delete from CSV
+        deleteFromCSV(studentId);
         return true;
+    }
+
+    private void delete(BTreeNode node, long key) {
+        int i = 0;
+        while (i < node.n && key > node.keys[i]) {
+            i++;
+        }
+
+        if (node.leaf) {
+            // Case: node is a leaf
+            if (i < node.n && node.keys[i] == key) {
+                // Remove the key from leaf
+                for (int j = i; j < node.n - 1; j++) {
+                    node.keys[j] = node.keys[j + 1];
+                    node.values[j] = node.values[j + 1];
+                }
+                node.n--;
+            }
+        } else {
+            // Case: node is internal
+            if (i < node.n && node.keys[i] == key) {
+                // Key found in internal node
+                deleteFromInternal(node, key, i);
+            } else {
+                // Key not found in internal node, go to appropriate child
+                boolean isLastChild = (i == node.n);
+
+                if (node.children[i].n < t) {
+                    fill(node, i);
+                }
+
+                if (isLastChild && i > node.n) {
+                    delete(node.children[i - 1], key);
+                } else {
+                    delete(node.children[i], key);
+                }
+            }
+        }
+    }
+
+    private void deleteFromInternal(BTreeNode node, long key, int index) {
+        if (node.children[index].n >= t) {
+            // Get predecessor
+            long predecessor = getPredecessor(node, index);
+            node.keys[index] = predecessor;
+            delete(node.children[index], predecessor);
+        } else if (node.children[index + 1].n >= t) {
+            // Get successor
+            long successor = getSuccessor(node, index);
+            node.keys[index] = successor;
+            delete(node.children[index + 1], successor);
+        } else {
+            // Merge with sibling
+            merge(node, index);
+            delete(node.children[index], key);
+        }
+    }
+
+    private long getPredecessor(BTreeNode node, int index) {
+        BTreeNode current = node.children[index];
+        while (!current.leaf) {
+            current = current.children[current.n];
+        }
+        return current.keys[current.n - 1];
+    }
+
+    private long getSuccessor(BTreeNode node, int index) {
+        BTreeNode current = node.children[index + 1];
+        while (!current.leaf) {
+            current = current.children[0];
+        }
+        return current.keys[0];
+    }
+
+    private void fill(BTreeNode node, int index) {
+        // If previous sibling has more than t-1 keys, borrow from it
+        if (index != 0 && node.children[index - 1].n >= t) {
+            borrowFromPrev(node, index);
+        }
+        // If next sibling has more than t-1 keys, borrow from it
+        else if (index != node.n && node.children[index + 1].n >= t) {
+            borrowFromNext(node, index);
+        }
+        // If both siblings have t-1 keys, merge with sibling
+        else {
+            if (index != node.n) {
+                merge(node, index);
+            } else {
+                merge(node, index - 1);
+            }
+        }
+    }
+
+    private void borrowFromPrev(BTreeNode node, int index) {
+        BTreeNode child = node.children[index];
+        BTreeNode sibling = node.children[index - 1];
+
+        // Shift all keys and values in child to make room
+        for (int i = child.n - 1; i >= 0; i--) {
+            child.keys[i + 1] = child.keys[i];
+            if (child.leaf) {
+                child.values[i + 1] = child.values[i];
+            }
+        }
+
+        if (!child.leaf) {
+            // Shift child pointers
+            for (int i = child.n; i >= 0; i--) {
+                child.children[i + 1] = child.children[i];
+            }
+            // Move the rightmost child from sibling
+            child.children[0] = sibling.children[sibling.n];
+            // The key to move down is the parent key
+            child.keys[0] = node.keys[index - 1];
+            // Update parent key to be the rightmost key from sibling
+            node.keys[index - 1] = sibling.keys[sibling.n - 1];
+        } else {
+            // For leaf nodes: move actual data
+            child.keys[0] = sibling.keys[sibling.n - 1];
+            child.values[0] = sibling.values[sibling.n - 1];
+            // Update parent routing key to be the new smallest key in child
+            node.keys[index - 1] = child.keys[0];
+        }
+
+        child.n++;
+        sibling.n--;
+    }
+
+    private void borrowFromNext(BTreeNode node, int index) {
+        BTreeNode child = node.children[index];
+        BTreeNode sibling = node.children[index + 1];
+
+        if (!child.leaf) {
+            // Move parent key down to child
+            child.keys[child.n] = node.keys[index];
+            // Move leftmost child pointer from sibling
+            child.children[child.n + 1] = sibling.children[0];
+            // Update parent key to be the leftmost key from sibling
+            node.keys[index] = sibling.keys[0];
+
+            // Shift sibling's keys and children left
+            for (int i = 1; i < sibling.n; i++) {
+                sibling.keys[i - 1] = sibling.keys[i];
+            }
+            for (int i = 1; i <= sibling.n; i++) {
+                sibling.children[i - 1] = sibling.children[i];
+            }
+        } else {
+            // For leaf nodes: move actual data
+            child.keys[child.n] = sibling.keys[0];
+            child.values[child.n] = sibling.values[0];
+
+            // Shift sibling's data left
+            for (int i = 1; i < sibling.n; i++) {
+                sibling.keys[i - 1] = sibling.keys[i];
+                sibling.values[i - 1] = sibling.values[i];
+            }
+
+            // Update parent routing key to be the new smallest key in sibling
+            node.keys[index] = sibling.keys[0];
+        }
+
+        child.n++;
+        sibling.n--;
+    }
+
+    private void merge(BTreeNode node, int index) {
+        BTreeNode child = node.children[index];
+        BTreeNode sibling = node.children[index + 1];
+
+        // For internal nodes, pull down the parent key
+        if (!child.leaf) {
+            child.keys[child.n] = node.keys[index];
+            child.n++;
+        }
+
+        // Copy all keys and values from sibling to child
+        for (int i = 0; i < sibling.n; i++) {
+            child.keys[child.n + i] = sibling.keys[i];
+            if (child.leaf) {
+                child.values[child.n + i] = sibling.values[i];
+            }
+        }
+
+        // Copy child pointers for internal nodes
+        if (!child.leaf) {
+            for (int i = 0; i <= sibling.n; i++) {
+                child.children[child.n + i] = sibling.children[i];
+            }
+        } else {
+            // For leaf nodes, update the next pointer
+            child.next = sibling.next;
+        }
+
+        // Update child's count
+        child.n += sibling.n;
+
+        // Remove the key from parent
+        for (int i = index + 1; i < node.n; i++) {
+            node.keys[i - 1] = node.keys[i];
+        }
+
+        // Remove the child pointer from parent
+        for (int i = index + 2; i <= node.n; i++) {
+            node.children[i - 1] = node.children[i];
+        }
+
+        node.n--;
+    }
+
+    private void deleteFromCSV(long studentId) {
+        try {
+            List<String> lines = Files.readAllLines(Paths.get("Student.csv"));
+            List<String> updatedLines = new ArrayList<>();
+
+            for (String line : lines) {
+                String[] parts = line.split(",");
+                if (parts.length > 0 && !parts[0].equals(String.valueOf(studentId))) {
+                    updatedLines.add(line);
+                }
+            }
+
+            Files.write(Paths.get("Student.csv"), updatedLines);
+        } catch (IOException e) {
+            System.out.println("Error updating CSV: " + e.getMessage());
+        }
     }
 
     List<Long> print() {
@@ -190,5 +482,35 @@ class BTree {
         }
 
         return listOfRecordID;
+    }
+
+    // Debug methods to print and verify tree structure
+    public void debugPrint() {
+        System.out.println("=== B+Tree Structure ===");
+        if (root == null) {
+            System.out.println("Empty tree");
+            return;
+        }
+        debugPrintNode(root, 0);
+        System.out.println("========================");
+    }
+
+    private void debugPrintNode(BTreeNode node, int level) {
+        String indent = "  ".repeat(level);
+        System.out.print(indent + "Node(" + (node.leaf ? "LEAF" : "INTERNAL") + "): ");
+        for (int i = 0; i < node.n; i++) {
+            System.out.print(node.keys[i]);
+            if (node.leaf) {
+                System.out.print("(" + node.values[i] + ")");
+            }
+            if (i < node.n - 1) System.out.print(", ");
+        }
+        System.out.println();
+
+        if (!node.leaf) {
+            for (int i = 0; i <= node.n; i++) {
+                debugPrintNode(node.children[i], level + 1);
+            }
+        }
     }
 }
