@@ -3,6 +3,7 @@ import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Random;
 
 /**
  * Main Application.
@@ -14,7 +15,7 @@ public class BTreeMain {
         /** Read the input file -- input.txt */
         Scanner scan = null;
         try {
-            scan = new Scanner(new File("./input.txt"));
+            scan = new Scanner(new File("input.txt"));
         } catch (FileNotFoundException e) {
             System.out.println("File not found.");
         }
@@ -31,6 +32,9 @@ public class BTreeMain {
         for (Student s : studentsDB) {
             bTree.insert(s, false);
         }
+        // Printing tree for visual help troubleshooting with debug method
+        System.out.println("Initial tree:");
+        bTree.debugPrint();
 
         /** Start reading the operations now from input file */
         try {
@@ -49,11 +53,16 @@ public class BTreeMain {
                             String major = s2.next();
                             String level = s2.next();
                             int age = Integer.parseInt(s2.next());
-                            /**
-                             * TODO: Write a logic to generate recordID if it is not provided
-                             * If it is provided, use the provided value
-                             */
-                            long recordID = 41644; // TODO someone implement this logic
+
+                            // On Piazza Mark confirmed the approach of using 0 to random max int
+                            long recordID;
+                            if (s2.hasNext()) {
+                                recordID = Long.parseLong(s2.next());
+                            }
+                            else {
+                                Random rand = new Random();
+                                recordID = rand.nextInt(Integer.MAX_VALUE);
+                            }
 
                             Student s = new Student(studentId, age, studentName, major, level, recordID);
                             bTree.insert(s, true);
@@ -62,11 +71,20 @@ public class BTreeMain {
                         }
                         case "delete": {
                             long studentId = Long.parseLong(s2.next());
+
+                            // Printing tree before delte
+                            System.out.println("Before attempting to delete " + studentId + ":");
+                            bTree.debugPrint();
+
                             boolean result = bTree.delete(studentId);
                             if (result)
                                 System.out.println("Student deleted successfully.");
                             else
                                 System.out.println("Student deletion failed.");
+
+                            // Printing tree after delete
+                            System.out.println("After attempting to delete " + studentId + ":");
+                            bTree.debugPrint();
 
                             break;
                         }
@@ -100,25 +118,40 @@ public class BTreeMain {
         List<Student> studentList = new ArrayList<>();
         try (Scanner scanner = new Scanner(new File("Student.csv"))) {
             while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
+                // Remove trailing/leading spaces and skip blank lines
+                String line = scanner.nextLine().trim();
+                if (line.isEmpty()) continue;
+
                 String[] tokens = line.split(",");
-                if (tokens.length < 6)
+                if (tokens.length < 6) {
+                    System.out.println("Skipping malformed line: " + line);
                     continue; // skip malformed lines
+                }
+                // Adding in try-catch for debugging in case we alter CSV unexpectedly
+                try {
+                    // Updated to use single token for name - CSV treats these as one token
+                    // rather than two tokens split with a space.
+                    long studentId = Long.parseLong(tokens[0].trim());
+                    String studentName = tokens[1].trim();            // Name
+                    String major = tokens[2].trim();                  // Major
+                    String level = tokens[3].trim();                  // Level (FR, SO, JR, SR)
+                    int age = Integer.parseInt(tokens[4].trim());     // Age
+                    long recordID = Long.parseLong(tokens[5].trim()); // RecordID
 
-                long studentId = Long.parseLong(tokens[0].trim());
-                String studentName = tokens[1].trim() + " " + tokens[2].trim();
-                String major = tokens[3].trim();
-                String level = tokens[4].trim();
-                int age = Integer.parseInt(tokens[5].trim());
-                long recordID = tokens.length > 6 ? Long.parseLong(tokens[6].trim()) : -1;
-
-                Student student = new Student(studentId, age, studentName, major, level, recordID);
-                studentList.add(student);
+                    Student student = new Student(studentId, age, studentName, major, level, recordID);
+                    studentList.add(student);
+                } catch (NumberFormatException e) {
+                    System.out.println("Error parsing line: " + line + " - " + e.getMessage());
+                }
             }
+        } catch (FileNotFoundException e) {
+            System.out.println("Student.csv file not found: " + e.getMessage());
         } catch (Exception e) {
             System.out.println("There was an error reading the Student.csv file: " + e.getMessage());
         }
 
+        // Confirming expected number of students were loaded
+        System.out.println("Loaded " + studentList.size() + " students from CSV");
         return studentList;
     }
 }
