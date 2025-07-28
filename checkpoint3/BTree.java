@@ -26,6 +26,16 @@ class BTree {
         this.t = t;
     }
 
+    /**
+     * This method will search the tree for the given studentID, and if found will
+     * return the
+     * recordID associated with that studentID. If the studnetID does not exist in
+     * the tree, a
+     * message will be printed making note of this.
+     * 
+     * @param studentId - the student to search for
+     * @return - the record ID of the student queried
+     */
     // Karlson, feel free to check/change this as needed.
     // I implemented it for testing delete, not sure if it handles all scenarios.
     long search(long studentId) {
@@ -87,6 +97,10 @@ class BTree {
 
         // ideally, we should check if the student already exists
         // but for now, we'll just insert it and add it to the csv
+        if (searchQuiet(student.studentId) != -1) {
+            System.out.println("Student ID " + student.studentId + " already exists. Skipping insert.");
+            return this;
+        }
 
         // empty tree
         if (root == null) {
@@ -125,8 +139,9 @@ class BTree {
             }
 
             root.n = t;
+            newChild.n = t;
             newRoot.children[1] = newChild;
-            newRoot.keys[0] = root.keys[0];
+            newRoot.keys[0] = newChild.keys[0];
             newRoot.n = 1;
 
             root = newRoot;
@@ -162,6 +177,7 @@ class BTree {
                 }
 
                 currentNode.children[i].n = t;
+                newChild.n = t;
 
                 for (int k = currentNode.n; k >= i + 1; k--) {
                     currentNode.children[k + 1] = currentNode.children[k];
@@ -171,7 +187,7 @@ class BTree {
                     currentNode.keys[k + 1] = currentNode.keys[k];
                 }
 
-                currentNode.keys[i] = currentNode.children[i].keys[0];
+                currentNode.keys[i] = newChild.keys[0];
                 currentNode.n++;
 
                 if (student.studentId > currentNode.keys[i]) {
@@ -503,7 +519,8 @@ class BTree {
             if (node.leaf) {
                 System.out.print("(" + node.values[i] + ")");
             }
-            if (i < node.n - 1) System.out.print(", ");
+            if (i < node.n - 1)
+                System.out.print(", ");
         }
         System.out.println();
 
