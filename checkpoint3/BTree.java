@@ -29,15 +29,13 @@ class BTree {
     /**
      * This method will search the tree for the given studentID, and if found will
      * return the
-     * recordID associated with that studentID. If the studnetID does not exist in
+     * recordID associated with that studentID. If the studentID does not exist in
      * the tree, a
      * message will be printed making note of this.
      * 
      * @param studentId - the student to search for
      * @return - the record ID of the student queried
      */
-    // Karlson, feel free to check/change this as needed.
-    // I implemented it for testing delete, not sure if it handles all scenarios.
     long search(long studentId) {
         if (root == null) {
             System.out.println("The given studentId " + studentId + " has not been found in the table");
@@ -95,8 +93,7 @@ class BTree {
 
     BTree insert(Student student, boolean writeToFile) {
 
-        // ideally, we should check if the student already exists
-        // but for now, we'll just insert it and add it to the csv
+        //checking if student already exists in the tree
         if (searchQuiet(student.studentId) != -1) {
             System.out.println("Student ID " + student.studentId + " already exists. Skipping insert.");
             return this;

@@ -33,8 +33,8 @@ public class BTreeMain {
             bTree.insert(s, false);
         }
         // Printing tree for visual help troubleshooting with debug method
-        System.out.println("Initial tree:");
-        bTree.debugPrint();
+        //System.out.println("Initial tree:");
+        //bTree.debugPrint();
 
         /** Start reading the operations now from input file */
         try {
@@ -73,8 +73,8 @@ public class BTreeMain {
                             long studentId = Long.parseLong(s2.next());
 
                             // Printing tree before delte
-                            System.out.println("Before attempting to delete " + studentId + ":");
-                            bTree.debugPrint();
+                            //System.out.println("Before attempting to delete " + studentId + ":");
+                            //bTree.debugPrint();
 
                             boolean result = bTree.delete(studentId);
                             if (result)
@@ -83,8 +83,8 @@ public class BTreeMain {
                                 System.out.println("Student deletion failed.");
 
                             // Printing tree after delete
-                            System.out.println("After attempting to delete " + studentId + ":");
-                            bTree.debugPrint();
+                            //System.out.println("After attempting to delete " + studentId + ":");
+                            //bTree.debugPrint();
 
                             break;
                         }
